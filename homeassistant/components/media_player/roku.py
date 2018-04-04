@@ -11,12 +11,13 @@ import voluptuous as vol
 from homeassistant.components.media_player import (
     MEDIA_TYPE_VIDEO, SUPPORT_NEXT_TRACK, SUPPORT_PLAY_MEDIA,
     SUPPORT_PREVIOUS_TRACK, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_SET,
-    SUPPORT_SELECT_SOURCE, SUPPORT_PLAY, MediaPlayerDevice, PLATFORM_SCHEMA)
+    SUPPORT_SELECT_SOURCE, SUPPORT_PLAY, SUPPORT_TURN_ON, SUPPORT_TURN_OFF,
+    MediaPlayerDevice, PLATFORM_SCHEMA)
 from homeassistant.const import (
-    CONF_HOST, STATE_IDLE, STATE_PLAYING, STATE_UNKNOWN, STATE_HOME)
+    CONF_HOST, STATE_IDLE, STATE_PLAYING, STATE_UNKNOWN, STATE_HOME, STATE_ON, STATE_OFF)
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['python-roku==3.1.5']
+REQUIREMENTS = ['https://github.com/steti/python-roku/archive/tv-features.zip#python-roku==3.1.5']
 
 KNOWN_HOSTS = []
 DEFAULT_PORT = 8060
@@ -29,6 +30,8 @@ _LOGGER = logging.getLogger(__name__)
 SUPPORT_ROKU = SUPPORT_PREVIOUS_TRACK | SUPPORT_NEXT_TRACK |\
     SUPPORT_PLAY_MEDIA | SUPPORT_VOLUME_SET | SUPPORT_VOLUME_MUTE |\
     SUPPORT_SELECT_SOURCE | SUPPORT_PLAY
+
+SUPPORT_ROKU_TV = SUPPORT_ROKU | SUPPORT_TURN_ON | SUPPORT_TURN_OFF
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_HOST): cv.string,
@@ -128,6 +131,9 @@ class RokuDevice(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the device."""
+        if self.roku.current_power_mode != "PowerOn":
+            return STATE_OFF
+
         if self.current_app is None:
             return STATE_UNKNOWN
 
@@ -144,6 +150,8 @@ class RokuDevice(MediaPlayerDevice):
     @property
     def supported_features(self):
         """Flag media player features that are supported."""
+        if self.roku.is_tv:
+            return SUPPORT_ROKU_TV
         return SUPPORT_ROKU
 
     @property
@@ -233,3 +241,11 @@ class RokuDevice(MediaPlayerDevice):
             else:
                 channel = self.roku[source]
                 channel.launch()
+
+    def turn_on(self):
+        """Turn the media player on."""
+        self.roku.power_on()
+
+    def turn_off(self):
+        """Turn the media player off."""
+        self.roku.power_off()
